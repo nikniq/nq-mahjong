@@ -32,6 +32,10 @@
 
     @yield('content')
 
+    <footer class="site-footer">
+        <a href="https://nikniq.com">&larr; Back to nikniq.com</a>
+    </footer>
+
     @stack('scripts')
 </body>
 </html>
