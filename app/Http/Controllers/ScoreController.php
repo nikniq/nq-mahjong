@@ -105,7 +105,7 @@ class ScoreController extends Controller
         return array_slice($rows, 0, $limit);
     }
 
-    private static function cacheKey(string $layout, ?string $daily): string
+    public static function cacheKey(string $layout, ?string $daily): string
     {
         return $daily ? "leaderboard:daily:$daily" : "leaderboard:$layout";
     }

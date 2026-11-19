@@ -359,6 +359,8 @@
         const moves = availablePairs(tiles).length;
         el.score.textContent = fmt(G.score);
         el.tiles.textContent = tiles.length;
+        const bar = $('progress-bar');
+        if (bar && G.tiles.length) bar.style.width = (100 * (1 - tiles.length / G.tiles.length)) + '%';
         el.moves.textContent = moves;
         renderTime();
         const streakLive = G.streak > 0 && Date.now() - G.lastMatchAt <= RULES.combo_window * 1000;
@@ -647,6 +649,9 @@
             store.set(DAILY_DONE, done);
         }
         renderBest();
+        const streak = G.daily ? dailyStreak() : 0;
+        $('win-streak').hidden = streak < 2;
+        $('win-streak').textContent = '☀ ' + streak + '-day daily streak — come back tomorrow to keep it going!';
 
         $('win-title').textContent = G.daily ? 'Daily deal cleared!' : 'Board cleared!';
         $('win-score').textContent = fmt(G.score);
@@ -683,6 +688,15 @@
     }
 
     /* ---------- server ---------- */
+
+    /** Consecutive days (ending today) with a cleared daily deal on this device. */
+    function dailyStreak() {
+        const done = store.get(DAILY_DONE) || {};
+        let n = 0;
+        const d = new Date(today() + 'T00:00:00Z');
+        while (done[d.toISOString().slice(0, 10)]) { n++; d.setUTCDate(d.getUTCDate() - 1); }
+        return n;
+    }
 
     function submit(payload) {
         return fetch(CFG.urls.scores, {

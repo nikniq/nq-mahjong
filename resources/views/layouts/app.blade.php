@@ -38,6 +38,9 @@
                 @endforeach
             </ul>
             <div class="nav-account">
+                @unless (request()->routeIs('game'))
+                    <a href="{{ route('game') }}" class="btn btn-gold btn-sm nav-play">Play free</a>
+                @endunless
                 @auth
                     <details class="account">
                         <summary>
@@ -51,6 +54,9 @@
                         <div class="account-menu">
                             <p class="account-email">{{ auth()->user()->email }}</p>
                             <a href="{{ route('leaderboard') }}#mine">My scores</a>
+                            @if (auth()->user()->isAdmin())
+                                <a href="{{ route('admin.dashboard') }}">Admin</a>
+                            @endif
                             @if (auth()->user()->nikniq_id)
                                 <a href="{{ \App\Support\Nikniq::portal() }}/dashboard">nikniq.com dashboard</a>
                             @endif
@@ -62,7 +68,7 @@
                     </details>
                 @else
                     <a href="{{ route('login') }}" @class(['nav-login', 'active' => request()->routeIs('login')])>Log in</a>
-                    <a href="{{ route('register') }}" class="btn btn-gold btn-sm">Sign up free</a>
+                    <a href="{{ route('register') }}" class="btn btn-sm">Sign up</a>
                 @endauth
             </div>
         </nav>
@@ -85,6 +91,7 @@
                         <span>{{ config('app.name') }}</span>
                     </a>
                     <p>Free mahjong solitaire in your browser. No downloads, no ads in your way, and no account needed to play.</p>
+                    <a class="btn btn-gold btn-sm" href="{{ route('game', ['daily' => 1]) }}">☀ Play today's deal</a>
                 </div>
                 <div>
                     <h3>Play</h3>
@@ -100,6 +107,9 @@
                     <ul>
                         @auth
                             <li><a href="{{ route('leaderboard') }}#mine">My scores</a></li>
+                            @if (auth()->user()->isAdmin())
+                                <li><a href="{{ route('admin.dashboard') }}">Admin</a></li>
+                            @endif
                         @else
                             <li><a href="{{ route('register') }}">Sign up</a></li>
                             <li><a href="{{ route('login') }}">Log in</a></li>

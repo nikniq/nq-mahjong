@@ -17,6 +17,13 @@ class User extends Authenticatable
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
+    /** Admins are flagged in the database, or listed in ADMIN_EMAILS for bootstrapping. */
+    public function isAdmin(): bool
+    {
+        return (bool) $this->is_admin
+            || in_array(strtolower($this->email), config('mahjong.admin_emails'), true);
+    }
+
     public function scores(): \Illuminate\Database\Eloquent\Relations\HasMany
     {
         return $this->hasMany(Score::class);
@@ -34,6 +41,7 @@ class User extends Authenticatable
             'password' => 'hashed',
             'nikniq_token' => 'encrypted',
             'nikniq_token_expires_at' => 'datetime',
+            'is_admin' => 'boolean',
         ];
     }
 }

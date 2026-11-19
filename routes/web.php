@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Admin\AdminController;
 use App\Http\Controllers\Auth\GoogleController;
 use App\Http\Controllers\Auth\NikniqController;
 use App\Http\Controllers\AuthController;
@@ -37,4 +38,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/scores', [ScoreController::class, 'store'])
         ->middleware('throttle:30,1')
         ->name('scores.store');
+});
+
+Route::middleware(['auth', 'admin'])->prefix('admin')->name('admin.')->group(function () {
+    Route::get('/', [AdminController::class, 'dashboard'])->name('dashboard');
+    Route::get('/users', [AdminController::class, 'users'])->name('users');
+    Route::post('/users/{user}/admin', [AdminController::class, 'toggleAdmin'])->name('users.admin');
+    Route::delete('/users/{user}', [AdminController::class, 'destroyUser'])->name('users.destroy');
+    Route::get('/scores', [AdminController::class, 'scores'])->name('scores');
+    Route::delete('/scores/{score}', [AdminController::class, 'destroyScore'])->name('scores.destroy');
 });

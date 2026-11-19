@@ -14,15 +14,15 @@
 <main>
     <section class="hero">
         <div class="hero-copy">
-            <p class="eyebrow">Free · No download · No sign-up needed</p>
+            <p class="eyebrow">100% free · Plays in your browser · No sign-up needed</p>
             <h1>Mahjong solitaire,<br>beautifully simple.</h1>
             <p class="lead">
                 Clear the board by matching pairs of free tiles. Three hand-built layouts,
                 a fresh shared deal every day, and every board is guaranteed to be solvable.
             </p>
             <div class="hero-cta">
-                <a class="btn btn-gold btn-lg" href="{{ route('game') }}">Play now</a>
-                <a class="btn btn-lg" href="{{ route('game', ['daily' => 1]) }}">Today's deal</a>
+                <a class="btn btn-gold btn-lg" href="{{ route('game') }}">Play now — it's free</a>
+                <a class="btn btn-lg" href="{{ route('game', ['daily' => 1]) }}">☀ Today's deal</a>
             </div>
             <ul class="hero-proof">
                 <li><strong>{{ number_format($stats['cleared']) }}</strong> boards cleared</li>
@@ -140,8 +140,16 @@
 
     <section class="cta-band">
         <h2>Ready for a quick game?</h2>
-        <p>A round of Garden takes about five minutes.</p>
+        <p>A round of Garden takes about five minutes. Your first tile is one click away.</p>
         <a class="btn btn-gold btn-lg" href="{{ route('game', ['layout' => 'garden']) }}">Start playing</a>
+        @guest
+            <p class="muted">Want your scores on the leaderboard? <a href="{{ route('register') }}">Create a free account</a> with email, Google or nikniq.com.</p>
+        @endguest
     </section>
+
+    <div class="sticky-cta">
+        <a class="btn btn-gold" href="{{ route('game') }}">Play free</a>
+        <a class="btn" href="{{ route('game', ['daily' => 1]) }}">☀ Daily deal</a>
+    </div>
 </main>
 @endsection

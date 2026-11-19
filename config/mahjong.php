@@ -10,6 +10,12 @@
 
 return [
 
+    // Comma-separated emails that always get the admin area (see also `php artisan mahjong:admin`).
+    'admin_emails' => array_values(array_filter(array_map(
+        fn ($e) => strtolower(trim($e)),
+        explode(',', (string) env('ADMIN_EMAILS', '')),
+    ))),
+
     'layouts' => [
         'garden' => ['name' => 'Garden', 'level' => 'Easy', 'tiles' => 48],
         'bridge' => ['name' => 'Twin Towers', 'level' => 'Medium', 'tiles' => 88],

@@ -66,3 +66,9 @@ The server rejects results that are impossible under the rules (above the
 maximum reachable score, or faster than the tiles can be clicked) and
 rate-limits submissions, which is enough for a casual leaderboard but not for
 prizes.
+
+## Admin area
+
+`/admin` shows players, sign-ups, games per day and sign-in providers, and lets admins
+search players, grant/revoke admin, delete players, and remove suspicious scores.
+Grant access with `php artisan mahjong:admin you@example.com`, or list emails in `ADMIN_EMAILS`.

@@ -426,3 +426,47 @@ kbd { display: inline-block; min-width: 1.6em; padding: .05rem .4rem; border: 1p
     .hero-tile, .spark, .confetti span { animation: none; }
     .confetti { display: none; }
 }
+
+/* ---------- admin ---------- */
+.page-wide { max-width: 1100px; }
+.admin-head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+.admin .card { margin-bottom: 1.25rem; }
+.admin .section-split { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1.25rem; padding: 0; }
+.card-title { font-size: 1rem; margin: 0 0 .75rem; color: var(--muted); font-weight: 600; }
+.kpis { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem; margin-bottom: 1.25rem; }
+.kpi { background: var(--panel); border: 1px solid var(--line); border-radius: 14px; padding: 1rem 1.25rem; display: flex; flex-direction: column; gap: .25rem; }
+.kpi-label { color: var(--muted); font-size: .8rem; text-transform: uppercase; letter-spacing: .05em; }
+.kpi-value { font-size: 1.8rem; font-weight: 700; font-variant-numeric: tabular-nums; }
+.bars { display: flex; gap: 4px; align-items: stretch; height: 160px; }
+.bar-day { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; min-width: 0; }
+.bar-stack { flex: 1; width: 100%; display: flex; gap: 2px; align-items: flex-end; }
+.bar { flex: 1; border-radius: 3px 3px 0 0; min-height: 2px; }
+.bar-games, .dot-games { background: var(--gold); }
+.bar-signups, .dot-signups { background: #7fd1a8; }
+.bar-label { font-size: .7rem; color: var(--muted); }
+.legend { font-size: .85rem; color: var(--muted); display: flex; align-items: center; gap: .4rem; margin: .75rem 0 0; }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-left: .6rem; }
+.admin-filter { display: flex; gap: .5rem; margin-bottom: 1rem; flex-wrap: wrap; }
+.admin-filter input[type=search] { flex: 1; min-width: 200px; padding: .5rem .75rem; border-radius: 8px; border: 1px solid var(--line); background: rgba(0,0,0,.25); color: var(--text); }
+.table-scroll { overflow-x: auto; }
+.actions { display: flex; gap: .4rem; justify-content: flex-end; }
+.actions form { margin: 0; }
+.btn-danger { color: var(--danger); border-color: rgba(255, 157, 138, .4); }
+.btn-danger:hover { background: rgba(255, 157, 138, .15); }
+.pill { display: inline-block; font-size: .7rem; padding: .05rem .45rem; border-radius: 999px; background: var(--gold); color: var(--gold-ink); margin-left: .3rem; vertical-align: middle; }
+.pager { display: flex; justify-content: space-between; align-items: center; margin-top: 1rem; }
+.pager [aria-disabled] { opacity: .4; }
+
+/* ---------- sales & game extras ---------- */
+.progress { height: 4px; background: rgba(255,255,255,.1); border-radius: 2px; overflow: hidden; margin: 0 auto .5rem; width: min(100%, 1100px); }
+.progress > span { display: block; height: 100%; width: 0; background: var(--gold); transition: width .3s ease; }
+.streak-line { color: var(--gold); font-weight: 600; margin: .25rem 0; }
+.benefits { list-style: none; padding: 0; margin: .5rem 0 1rem; text-align: left; display: inline-block; }
+.benefits li::before { content: "✓ "; color: var(--gold); font-weight: 700; }
+.sticky-cta { display: none; }
+@media (max-width: 720px) {
+    .nav-play { display: none; }
+    .page-home .sticky-cta { display: flex; position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; gap: .5rem; padding: .6rem 1rem calc(.6rem + env(safe-area-inset-bottom)); background: var(--felt-deep); border-top: 1px solid var(--line); }
+    .page-home .sticky-cta .btn { flex: 1; justify-content: center; }
+    .page-home .site-footer { padding-bottom: 5rem; }
+}

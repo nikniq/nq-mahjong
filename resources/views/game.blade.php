@@ -42,6 +42,8 @@
         </div>
     </section>
 
+    <div class="progress" aria-hidden="true"><span id="progress-bar"></span></div>
+
     <p class="notice" id="notice" role="status" aria-live="polite" hidden></p>
 
     <section class="board-wrap" id="board-wrap">
@@ -66,10 +68,18 @@
     <h2 id="win-title">Board cleared!</h2>
     <p class="final-score" id="win-score">0</p>
     <dl class="breakdown" id="win-breakdown"></dl>
+    <p class="streak-line" id="win-streak" hidden></p>
     <p class="save-status" id="win-save" role="status"></p>
-    <div class="modal-actions" id="win-guest" hidden>
-        <a class="btn btn-gold" href="{{ route('register') }}">Sign up to save it</a>
-        <a class="btn" href="{{ route('login') }}">Log in</a>
+    <div id="win-guest" hidden>
+        <ul class="benefits">
+            <li>Put this score on the leaderboard</li>
+            <li>Track your best on every board and the daily deal</li>
+            <li>Free, one click with Google or nikniq.com</li>
+        </ul>
+        <div class="modal-actions">
+            <a class="btn btn-gold" href="{{ route('register') }}">Save my score — free</a>
+            <a class="btn" href="{{ route('login') }}">Log in</a>
+        </div>
     </div>
     <div class="modal-actions">
         <button type="button" class="btn btn-gold" id="win-new">Play again</button>
