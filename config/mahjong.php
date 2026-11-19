@@ -16,6 +16,9 @@ return [
         'turtle' => ['name' => 'Turtle', 'level' => 'Classic', 'tiles' => 144],
     ],
 
+    // The shared "deal of the day" uses this layout with a date-derived seed.
+    'daily_layout' => 'turtle',
+
     'scoring' => [
         'pair' => 100,            // base points per matched pair
         'combo_window' => 6,      // seconds between matches to keep a streak

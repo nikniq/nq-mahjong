@@ -21,7 +21,10 @@ class GameTest extends TestCase
 
     public function test_guests_can_open_the_game_and_leaderboard(): void
     {
-        $this->get('/')->assertOk()->assertSee('js/game.js');
+        $this->get('/')->assertOk()->assertSee('Play now');
+        $this->get('/play')->assertOk()->assertSee('js/game.js');
+        $this->get('/how-to-play')->assertOk();
+        $this->get('/leaderboard?layout=daily')->assertOk();
         $this->get('/leaderboard')->assertOk();
         $this->get('/login')->assertOk();
         $this->get('/register')->assertOk();
@@ -32,7 +35,7 @@ class GameTest extends TestCase
         $this->post('/register', [
             'name' => 'Mei', 'email' => 'mei@example.com',
             'password' => 'secret-password', 'password_confirmation' => 'secret-password',
-        ])->assertRedirect('/');
+        ])->assertRedirect('/play');
         $this->assertAuthenticated();
 
         $this->post('/logout')->assertRedirect('/');
@@ -43,7 +46,7 @@ class GameTest extends TestCase
         $this->assertGuest();
 
         $this->post('/login', ['email' => 'mei@example.com', 'password' => 'secret-password'])
-            ->assertRedirect('/');
+            ->assertRedirect('/play');
         $this->assertAuthenticated();
     }
 
@@ -59,7 +62,7 @@ class GameTest extends TestCase
 
         $this->actingAs($user)->postJson('/scores', $this->payload())
             ->assertCreated()
-            ->assertJson(['saved' => true, 'personal_best' => true, 'best' => 9000]);
+            ->assertJson(['saved' => true, 'personal_best' => true, 'best' => 9000, 'rank' => 1]);
 
         $this->actingAs($user)->postJson('/scores', $this->payload(['score' => 5000]))
             ->assertCreated()
@@ -88,5 +91,24 @@ class GameTest extends TestCase
         }
 
         $this->assertDatabaseCount('scores', 1);
+    }
+
+    public function test_daily_deal_scores_have_their_own_leaderboard(): void
+    {
+        $user = User::factory()->create(['name' => 'Dawn']);
+        $today = Mahjong::today();
+
+        $this->actingAs($user)->postJson('/scores', $this->payload(['daily' => $today, 'score' => 7777]))
+            ->assertCreated()->assertJson(['personal_best' => true]);
+        // A normal turtle game doesn't count towards the daily board, and vice versa.
+        $this->actingAs($user)->postJson('/scores', $this->payload(['score' => 1234]))
+            ->assertCreated()->assertJson(['personal_best' => true, 'best' => 1234]);
+
+        $this->get('/leaderboard?layout=daily')->assertSee('7,777')->assertDontSee('1,234');
+        $this->get('/leaderboard?layout=turtle')->assertSee('1,234')->assertDontSee('7,777');
+        $this->get('/')->assertSee('Dawn');
+
+        $this->actingAs($user)->postJson('/scores', $this->payload(['daily' => '2020-01-01']))->assertUnprocessable();
+        $this->actingAs($user)->postJson('/scores', $this->payload(['daily' => $today, 'layout' => 'garden']))->assertUnprocessable();
     }
 }

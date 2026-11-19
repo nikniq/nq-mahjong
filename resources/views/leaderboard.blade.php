@@ -10,9 +10,12 @@
 <main class="page">
     <h1>Leaderboard</h1>
 
-    <nav class="tabs" aria-label="Layout">
+    <nav class="tabs" aria-label="Board">
+        <a href="{{ route('leaderboard', ['layout' => 'daily']) }}" @class(['tab', 'active' => $daily])>
+            ☀ Today's deal <small>{{ \App\Support\Mahjong::today() }}</small>
+        </a>
         @foreach ($layouts as $key => $item)
-            <a href="{{ route('leaderboard', ['layout' => $key]) }}" @class(['tab', 'active' => $key === $layout])>
+            <a href="{{ route('leaderboard', ['layout' => $key]) }}" @class(['tab', 'active' => ! $daily && $key === $layout])>
                 {{ $item['name'] }} <small>{{ $item['level'] }}</small>
             </a>
         @endforeach
@@ -37,11 +40,11 @@
                 </tbody>
             </table>
         @else
-            <p class="empty">No scores on this layout yet. <a href="{{ route('game') }}">Be the first.</a></p>
+            <p class="empty">No scores here yet. <a href="{{ $daily ? route('game', ['daily' => 1]) : route('game', ['layout' => $layout]) }}">Be the first.</a></p>
         @endif
     </section>
 
-    <h2>Your recent games</h2>
+    <h2 id="mine">Your recent games</h2>
     <section class="card">
         @guest
             <p class="empty"><a href="{{ route('login') }}">Log in</a> or <a href="{{ route('register') }}">register</a> to record your scores.</p>
@@ -65,7 +68,7 @@
                     </tbody>
                 </table>
             @else
-                <p class="empty">You haven't cleared this layout yet. <a href="{{ route('game') }}">Play now.</a></p>
+                <p class="empty">You haven't cleared this board yet. <a href="{{ $daily ? route('game', ['daily' => 1]) : route('game', ['layout' => $layout]) }}">Play now.</a></p>
             @endif
         @endguest
     </section>

@@ -3,11 +3,31 @@
 Mahjong solitaire on Laravel 13. The game runs entirely in the browser; the
 server only serves the page, handles accounts, and records finished games.
 
+- Marketing landing page at `/`, the game at `/play`, rules at `/how-to-play`
 - Three layouts: Garden (48 tiles), Twin Towers (88), Turtle (144)
-- Every deal is generated to be solvable; hint, undo, shuffle, restart
+- A shared **daily deal** (same Turtle board for everyone, per UTC day) with its own leaderboard
+- Every deal is generated to be solvable; hint, undo, shuffle, restart, pause,
+  sound effects and a "dim blocked tiles" option
 - Guests can play freely. A game in progress and personal bests are kept in `localStorage`
 - Signed-in players have each cleared board saved to the leaderboard. A guest's
   last win is held on the device and uploaded as soon as they log in or register
+
+## Sign-in options
+
+Email/password always works. Two optional providers appear on the login and
+sign-up pages once configured in `.env` (see `.env.example` for details):
+
+- **Google** — set `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET`, with
+  `https://your-domain/auth/google/callback` as the authorised redirect URI.
+- **nikniq.com** — set `NIKNIQ_CLIENT_ID` to Mahjong's client id from the
+  portal's `/admin/games`, and make sure the portal lists this site's
+  `/auth/callback` URL as an allowed redirect URI. It uses PKCE, so no secret is
+  needed. Guests already logged in on nikniq.com are signed in silently
+  (`NIKNIQ_AUTO_SIGN_ON`), and wins by nikniq players are reported to the portal
+  so they appear on their nikniq.com dashboard.
+
+Accounts are linked by email, so the same person signing in different ways
+lands on one player.
 
 ## Run locally
 

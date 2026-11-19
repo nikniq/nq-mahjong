@@ -194,25 +194,70 @@
         set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) { /* private mode */ } },
         del(k) { try { localStorage.removeItem(k); } catch (e) { /* private mode */ } },
     };
-    const SAVE = 'nq.save', BEST = 'nq.best', PENDING = 'nq.pending', LAYOUT = 'nq.layout';
+    // Normal games and the daily deal are saved in separate slots, so starting
+    // one never throws away the other.
+    const SAVE = 'nq.save', SAVE_DAILY = 'nq.save.daily', BEST = 'nq.best', PENDING = 'nq.pending',
+        LAYOUT = 'nq.layout', PREFS = 'nq.prefs', DAILY_DONE = 'nq.daily.done';
 
     const el = {
         board: $('board'), wrap: $('board-wrap'), notice: $('notice'), toast: $('toast'),
         score: $('stat-score'), time: $('stat-time'), tiles: $('stat-tiles'), moves: $('stat-moves'),
         combo: $('stat-combo'), comboValue: $('stat-combo-value'), layout: $('layout-select'),
-        best: $('best-line'), dialog: $('win-dialog'),
+        layoutWrap: $('layout-wrap'), dailyBadge: $('daily-badge'), best: $('best-line'),
+        dialog: $('win-dialog'), pause: $('pause-overlay'), pauseBtn: $('btn-pause'), menu: $('game-menu'),
     };
+
+    const prefs = Object.assign({ sound: true, dim: false }, store.get(PREFS) || {});
 
     let G = null;        // game state
     let selected = null; // tile id
     let hinted = [];     // tile ids
-    let tickTimer = null;
+    let paused = false;
 
     const live = () => G.tiles.filter((t) => !t.removed);
     const clock = (s) => Math.floor(s / 60) + ':' + String(s % 60).padStart(2, '0');
     const fmt = (n) => n.toLocaleString('en-US');
     const elapsedMs = () => G.elapsed + (G.runningSince ? Date.now() - G.runningSince : 0);
     const multiplier = (streak) => Math.min(1 + RULES.combo_step * streak, RULES.combo_max);
+    const today = () => new Date().toISOString().slice(0, 10); // UTC, same as the server
+    const boardName = () => G.daily ? 'the daily deal' : CFG.layouts[G.layout].name;
+
+    /** Every player gets the same deal on the same (UTC) day. */
+    function dailySeed(date) {
+        let h = 2166136261;
+        for (const ch of 'nq-mahjong:' + date) h = Math.imul(h ^ ch.charCodeAt(0), 16777619);
+        return h >>> 0;
+    }
+
+    /* ---------- sound ---------- */
+
+    let audio = null;
+    function tone(freq, start, dur, type, gain) {
+        if (!prefs.sound) return;
+        try {
+            audio = audio || new (window.AudioContext || window.webkitAudioContext)();
+            if (audio.state === 'suspended') audio.resume();
+            const t0 = audio.currentTime + start;
+            const osc = audio.createOscillator(), g = audio.createGain();
+            osc.type = type || 'sine';
+            osc.frequency.setValueAtTime(freq, t0);
+            g.gain.setValueAtTime(0.0001, t0);
+            g.gain.exponentialRampToValueAtTime(gain || 0.12, t0 + 0.01);
+            g.gain.exponentialRampToValueAtTime(0.0001, t0 + dur);
+            osc.connect(g).connect(audio.destination);
+            osc.start(t0);
+            osc.stop(t0 + dur + 0.02);
+        } catch (e) { /* no audio */ }
+    }
+    const sfx = {
+        click: () => tone(880, 0, 0.06, 'triangle', 0.06),
+        blocked: () => tone(140, 0, 0.12, 'square', 0.04),
+        // Pitch climbs with the combo, so a streak sounds like one.
+        match: (streak) => { const b = 520 * Math.pow(1.06, Math.min(streak, 8)); tone(b, 0, 0.12); tone(b * 1.5, 0.07, 0.18); },
+        undo: () => tone(330, 0, 0.1, 'triangle', 0.06),
+        shuffle: () => { for (let i = 0; i < 5; i++) tone(300 + Math.random() * 500, i * 0.03, 0.05, 'triangle', 0.04); },
+        win: () => [523, 659, 784, 1047].forEach((f, i) => tone(f, i * 0.12, 0.35, 'sine', 0.14)),
+    };
 
     /* ---------- tile artwork ---------- */
 
@@ -290,14 +335,16 @@
         el.board.style.width = (maxX * u + (maxZ + 1) * d) + 'px';
         el.board.style.height = (maxY * v + (maxZ + 1) * d) + 'px';
         el.board.style.setProperty('--d', d.toFixed(2) + 'px');
+        el.board.classList.toggle('dim', prefs.dim);
 
         const frag = document.createDocumentFragment();
         for (const t of tiles) {
+            const free = isFree(t, tiles);
             const b = document.createElement('button');
             b.type = 'button';
-            b.className = 'tile' + (t.id === selected ? ' selected' : '') + (hinted.includes(t.id) ? ' hint' : '');
+            b.className = 'tile' + (free ? '' : ' blocked') + (t.id === selected ? ' selected' : '') + (hinted.includes(t.id) ? ' hint' : '');
             b.dataset.id = t.id;
-            b.setAttribute('aria-label', FACES[t.face].label + (isFree(t, tiles) ? '' : ', blocked'));
+            b.setAttribute('aria-label', FACES[t.face].label + (free ? '' : ', blocked'));
             b.style.cssText = `left:${t.x * u + (maxZ - t.z) * d}px;top:${t.y * v + (maxZ - t.z) * d}px;`
                 + `width:${2 * u}px;height:${2 * v}px;z-index:${t.z * 10000 + t.y * 100 + t.x};`;
             b.innerHTML = art(t.face);
@@ -318,7 +365,9 @@
         el.combo.hidden = !streakLive;
         el.comboValue.textContent = '×' + multiplier(G.streak);
         $('btn-undo').disabled = !G.moves.length || G.done;
-        $('btn-hint').disabled = $('btn-shuffle').disabled = G.done || tiles.length === 0;
+        $('btn-hint').disabled = $('btn-shuffle').disabled = el.pauseBtn.disabled = G.done || tiles.length === 0;
+        el.dailyBadge.hidden = !G.daily;
+        el.layoutWrap.hidden = !!G.daily;
 
         if (!G.done && tiles.length && moves === 0) {
             notice('No moves left. Shuffle the remaining tiles (−' + RULES.shuffle + ') or undo your last pair.');
@@ -345,17 +394,42 @@
         toastTimer = setTimeout(() => { el.toast.hidden = true; }, 4000);
     }
 
+    function bestKey() { return G.daily ? 'daily:' + G.daily : G.layout; }
+
     function renderBest() {
-        const best = (store.get(BEST) || {})[G.layout];
+        const best = (store.get(BEST) || {})[bestKey()];
         el.best.textContent = best
-            ? 'Your best on ' + CFG.layouts[G.layout].name + ': ' + fmt(best.score) + ' in ' + clock(best.duration) + '.'
+            ? 'Your best on ' + boardName() + ': ' + fmt(best.score) + ' in ' + clock(best.duration) + '.'
             : '';
     }
 
-    /* ---------- clock ---------- */
+    function burst(x, y) {
+        for (let i = 0; i < 8; i++) {
+            const p = document.createElement('span');
+            p.className = 'spark';
+            const a = (Math.PI * 2 * i) / 8;
+            p.style.cssText = `left:${x}px;top:${y}px;--dx:${Math.cos(a) * 34}px;--dy:${Math.sin(a) * 34}px`;
+            el.board.appendChild(p);
+            setTimeout(() => p.remove(), 500);
+        }
+    }
+
+    function confetti() {
+        const box = $('confetti');
+        box.replaceChildren();
+        const colors = ['#e2b454', '#c0392b', '#1d7a46', '#1f4e9c', '#fbf6e6'];
+        for (let i = 0; i < 60; i++) {
+            const c = document.createElement('span');
+            c.style.cssText = `left:${Math.random() * 100}%;background:${colors[i % colors.length]};`
+                + `animation-delay:${Math.random() * 0.6}s;animation-duration:${1.6 + Math.random() * 1.4}s;--r:${Math.random() * 720 - 360}deg`;
+            box.appendChild(c);
+        }
+    }
+
+    /* ---------- clock & pause ---------- */
 
     function startClock() {
-        if (G.done || G.runningSince) return;
+        if (G.done || G.runningSince || paused) return;
         G.runningSince = Date.now();
     }
 
@@ -365,12 +439,24 @@
         G.runningSince = 0;
     }
 
+    function setPaused(on) {
+        if (on && (G.done || !live().length)) return;
+        paused = on;
+        el.pause.hidden = !on;
+        el.board.classList.toggle('paused', on);
+        el.pauseBtn.textContent = on ? '▶' : '❚❚';
+        el.pauseBtn.setAttribute('aria-label', on ? 'Resume' : 'Pause');
+        if (on) { pauseClock(); save(); } else if (G.moves.length || G.hints || G.shuffles) startClock();
+    }
+
     /* ---------- persistence ---------- */
 
+    function slot() { return G.daily ? SAVE_DAILY : SAVE; }
+
     function save() {
-        if (G.done) return store.del(SAVE);
-        store.set(SAVE, {
-            v: 1, layout: G.layout, seed: G.seed,
+        if (G.done) return store.del(slot());
+        store.set(slot(), {
+            v: 1, layout: G.layout, seed: G.seed, daily: G.daily,
             faces: G.tiles.map((t) => t.face),
             removed: G.tiles.filter((t) => t.removed).map((t) => t.id),
             score: G.score, elapsed: elapsedMs(), moves: G.moves,
@@ -378,37 +464,67 @@
         });
     }
 
-    function restore() {
-        const s = store.get(SAVE);
+    function restore(key) {
+        const s = store.get(key);
         if (!s || s.v !== 1 || !LAYOUTS[s.layout] || !CFG.layouts[s.layout]) return false;
+        if (key === SAVE_DAILY && s.daily !== today()) return false;
         const tiles = LAYOUTS[s.layout]().map((p, id) => ({ id, x: p.x, y: p.y, z: p.z, face: s.faces[id], removed: false }));
         if (tiles.some((t) => !FACES[t.face])) return false;
         for (const id of s.removed) if (tiles[id]) tiles[id].removed = true;
         G = {
-            layout: s.layout, seed: s.seed, tiles, score: s.score | 0, elapsed: +s.elapsed || 0,
+            layout: s.layout, seed: s.seed, daily: s.daily || null, tiles, score: s.score | 0, elapsed: +s.elapsed || 0,
             runningSince: 0, streak: 0, lastMatchAt: 0, moves: Array.isArray(s.moves) ? s.moves : [],
             hints: s.hints | 0, shuffles: s.shuffles | 0, undos: s.undos | 0, done: false,
         };
+        selected = null;
+        hinted = [];
         return true;
     }
 
     /* ---------- game flow ---------- */
 
-    function newGame(layout, seed) {
+    function setUrl() {
+        const url = G.daily ? CFG.urls.play + '?daily=1' : CFG.urls.play;
+        if (location.pathname + location.search !== new URL(url, location.href).pathname + new URL(url, location.href).search) {
+            history.replaceState(null, '', url);
+        }
+    }
+
+    function begin() {
+        selected = null;
+        hinted = [];
+        el.notice.hidden = true;
+        if (!G.daily) { el.layout.value = G.layout; store.set(LAYOUT, G.layout); }
+        setPaused(false);
+        setUrl();
+        render();
+        renderBest();
+    }
+
+    function newGame(layout, seed, daily) {
         G = {
-            layout, seed: seed === undefined ? (Math.random() * 0xFFFFFFFF) >>> 0 : seed,
+            layout, seed: seed === undefined ? (Math.random() * 0xFFFFFFFF) >>> 0 : seed, daily: daily || null,
             tiles: null, score: 0, elapsed: 0, runningSince: 0, streak: 0, lastMatchAt: 0,
             moves: [], hints: 0, shuffles: 0, undos: 0, done: false,
         };
         G.tiles = deal(layout, G.seed);
-        selected = null;
-        hinted = [];
-        el.notice.hidden = true;
-        el.layout.value = layout;
-        store.set(LAYOUT, layout);
         save();
-        render();
-        renderBest();
+        begin();
+    }
+
+    /** Resume today's daily deal if one is in progress, otherwise deal it. */
+    function startDaily() {
+        const date = today();
+        if (!restore(SAVE_DAILY)) newGame(CFG.daily.layout, dailySeed(date), date);
+        else begin();
+        const done = (store.get(DAILY_DONE) || {})[date];
+        if (done) toast('You cleared today\'s deal with ' + fmt(done) + '. Replays still count if you beat it.');
+    }
+
+    function startNormal(layout) {
+        if (restore(SAVE) && (!layout || layout === G.layout)) return begin();
+        const preferred = layout || store.get(LAYOUT);
+        newGame(CFG.layouts[preferred] ? preferred : 'turtle');
     }
 
     /** Ask before throwing away a game that is under way. */
@@ -417,11 +533,12 @@
     }
 
     function onTile(id) {
-        if (G.done) return;
+        if (G.done || paused) return;
         const tiles = live();
         const t = G.tiles[id];
         const node = el.board.querySelector('[data-id="' + id + '"]');
         if (!isFree(t, tiles)) {
+            sfx.blocked();
             if (node) { node.classList.remove('shake'); void node.offsetWidth; node.classList.add('shake'); }
             return;
         }
@@ -430,6 +547,7 @@
         if (selected === id) { selected = null; return render(); }
         const other = selected === null ? null : G.tiles[selected];
         if (other && FACES[other.face].key === FACES[t.face].key) return match(other, t);
+        sfx.click();
         selected = id;
         render();
     }
@@ -442,11 +560,14 @@
         G.score += Math.round(RULES.pair * multiplier(G.streak));
         a.removed = b.removed = true;
         selected = null;
+        sfx.match(G.streak);
 
-        // Fade the pair out, then redraw from state.
+        // Fade the pair out with a little burst, then redraw from state.
         for (const t of [a, b]) {
             const node = el.board.querySelector('[data-id="' + t.id + '"]');
-            if (node) node.classList.add('gone');
+            if (!node) continue;
+            node.classList.add('gone');
+            burst(node.offsetLeft + node.offsetWidth / 2, node.offsetTop + node.offsetHeight / 2);
         }
         renderHud();
         setTimeout(render, 170);
@@ -456,7 +577,7 @@
     }
 
     function undo() {
-        if (G.done || !G.moves.length) return;
+        if (G.done || paused || !G.moves.length) return;
         const [a, b, prevScore] = G.moves.pop();
         G.tiles[a].removed = G.tiles[b].removed = false;
         G.score = Math.max(0, prevScore - RULES.undo);
@@ -464,12 +585,13 @@
         G.undos++;
         selected = null;
         hinted = [];
+        sfx.undo();
         save();
         render();
     }
 
     function hint() {
-        if (G.done) return;
+        if (G.done || paused) return;
         const pairs = availablePairs(live());
         if (!pairs.length) return renderHud();
         startClock();
@@ -478,12 +600,13 @@
         selected = null;
         G.hints++;
         G.score = Math.max(0, G.score - RULES.hint);
+        sfx.click();
         save();
         render();
     }
 
     function shuffleBoard() {
-        if (G.done) return;
+        if (G.done || paused) return;
         const tiles = live();
         if (!tiles.length) return;
         if (!reshuffle(tiles, Math.random)) {
@@ -497,9 +620,12 @@
         G.moves = [];
         selected = null;
         hinted = [];
+        sfx.shuffle();
         save();
         render();
     }
+
+    let lastResult = '';
 
     function win() {
         pauseClock();
@@ -509,24 +635,35 @@
         const bonus = Math.max(0, par - duration) * RULES.time_bonus;
         const base = G.score;
         G.score = base + bonus;
-        store.del(SAVE);
+        store.del(slot());
 
         const bests = store.get(BEST) || {};
-        const isBest = !bests[G.layout] || G.score > bests[G.layout].score;
-        if (isBest) { bests[G.layout] = { score: G.score, duration }; store.set(BEST, bests); }
+        const key = bestKey();
+        const isBest = !bests[key] || G.score > bests[key].score;
+        if (isBest) { bests[key] = { score: G.score, duration }; store.set(BEST, bests); }
+        if (G.daily) {
+            const done = store.get(DAILY_DONE) || {};
+            done[G.daily] = Math.max(done[G.daily] || 0, G.score);
+            store.set(DAILY_DONE, done);
+        }
         renderBest();
 
+        $('win-title').textContent = G.daily ? 'Daily deal cleared!' : 'Board cleared!';
         $('win-score').textContent = fmt(G.score);
         $('win-breakdown').innerHTML = [
-            ['Layout', CFG.layouts[G.layout].name],
+            ['Board', G.daily ? 'Daily deal · ' + G.daily : CFG.layouts[G.layout].name],
             ['Tiles & combos', fmt(base)],
             ['Time ' + clock(duration) + ' (par ' + clock(par) + ')', '+' + fmt(bonus)],
             ['Hints / shuffles / undos', G.hints + ' / ' + G.shuffles + ' / ' + G.undos],
-            ['Best on this device', fmt(bests[G.layout].score) + (isBest ? ' — new best!' : '')],
+            ['Best on this device', fmt(bests[key].score) + (isBest ? ' — new best!' : '')],
         ].map(([k, val]) => '<div><dt>' + k + '</dt><dd>' + val + '</dd></div>').join('');
 
+        lastResult = 'NQ Mahjong ' + (G.daily ? 'daily deal ' + G.daily : CFG.layouts[G.layout].name)
+            + ': ' + fmt(G.score) + ' points in ' + clock(duration)
+            + (G.hints + G.shuffles + G.undos === 0 ? ' — no help!' : '') + '\n' + location.origin + CFG.urls.play.replace(location.origin, '') + (G.daily ? '?daily=1' : '');
+
         const payload = {
-            layout: G.layout, score: G.score, duration,
+            layout: G.layout, daily: G.daily, score: G.score, duration,
             hints: G.hints, shuffles: G.shuffles, undos: G.undos,
         };
         const status = $('win-save');
@@ -537,11 +674,12 @@
         } else {
             // Held on this device and sent once the player signs in.
             store.set(PENDING, payload);
-            status.textContent = 'You are playing as a guest. Sign in and this score goes on the leaderboard.';
+            status.textContent = 'You are playing as a guest. Sign up and this score goes on the leaderboard.';
         }
-        $('win-board').href = CFG.urls.leaderboard + '?layout=' + G.layout;
+        $('win-board').href = CFG.urls.leaderboard + '?layout=' + (G.daily ? 'daily' : G.layout);
         renderHud();
-        setTimeout(() => el.dialog.showModal(), 350);
+        sfx.win();
+        setTimeout(() => { confetti(); el.dialog.showModal(); }, 350);
     }
 
     /* ---------- server ---------- */
@@ -560,12 +698,13 @@
             if (r.ok) {
                 return r.json().then((j) => {
                     store.del(PENDING);
-                    return { ok: true, message: j.personal_best ? 'Score saved — a new personal best!' : 'Score saved. Your best is ' + fmt(j.best) + '.' };
+                    const rank = j.rank ? ' You are #' + j.rank + ' on the leaderboard.' : '';
+                    return { ok: true, message: (j.personal_best ? 'Score saved — a new personal best!' : 'Score saved. Your best is ' + fmt(j.best) + '.') + rank };
                 });
             }
             if (r.status === 422) {
                 store.del(PENDING);
-                return { ok: false, message: 'The server rejected this score.' };
+                return { ok: false, message: 'The server could not accept this score.' };
             }
             // Signed out or session expired: keep it and retry on the next page load.
             store.set(PENDING, payload);
@@ -578,6 +717,8 @@
 
     /* ---------- wiring ---------- */
 
+    const closeMenu = () => { el.menu.open = false; };
+
     el.board.addEventListener('click', (e) => {
         const node = e.target.closest('.tile');
         if (node) onTile(+node.dataset.id);
@@ -585,24 +726,47 @@
     $('btn-hint').addEventListener('click', hint);
     $('btn-undo').addEventListener('click', undo);
     $('btn-shuffle').addEventListener('click', shuffleBoard);
-    $('btn-restart').addEventListener('click', () => { if (confirmAbandon()) newGame(G.layout, G.seed); });
-    $('btn-new').addEventListener('click', () => { if (confirmAbandon()) newGame(el.layout.value); });
-    $('win-new').addEventListener('click', () => { el.dialog.close(); newGame(el.layout.value); });
+    el.pauseBtn.addEventListener('click', () => setPaused(!paused));
+    $('btn-resume').addEventListener('click', () => setPaused(false));
+    $('btn-restart').addEventListener('click', () => { closeMenu(); if (confirmAbandon()) newGame(G.layout, G.seed, G.daily); });
+    $('btn-daily').addEventListener('click', () => { closeMenu(); if (!G.daily) { save(); startDaily(); } });
+    $('btn-new').addEventListener('click', () => {
+        if (!confirmAbandon()) return;
+        if (G.daily) { save(); startNormal(); } else newGame(el.layout.value);
+    });
+    $('win-new').addEventListener('click', () => { el.dialog.close(); G.daily ? startNormal() : newGame(el.layout.value); });
+    $('win-share').addEventListener('click', () => {
+        const done = () => toast('Result copied — paste it anywhere.');
+        if (navigator.share && matchMedia('(pointer: coarse)').matches) {
+            navigator.share({ text: lastResult }).catch(() => {});
+        } else if (navigator.clipboard) {
+            navigator.clipboard.writeText(lastResult).then(done, () => toast(lastResult));
+        } else toast(lastResult);
+    });
     el.layout.addEventListener('change', () => {
         if (confirmAbandon()) newGame(el.layout.value);
         else el.layout.value = G.layout;
     });
+
+    const optSound = $('opt-sound'), optDim = $('opt-dim');
+    optSound.checked = prefs.sound;
+    optDim.checked = prefs.dim;
+    optSound.addEventListener('change', () => { prefs.sound = optSound.checked; store.set(PREFS, prefs); sfx.click(); });
+    optDim.addEventListener('change', () => { prefs.dim = optDim.checked; store.set(PREFS, prefs); render(); });
+    document.addEventListener('click', (e) => { if (el.menu.open && !el.menu.contains(e.target)) closeMenu(); });
 
     document.addEventListener('keydown', (e) => {
         if (e.target.matches('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey || el.dialog.open) return;
         const k = e.key.toLowerCase();
         if (k === 'h') hint();
         else if (k === 'u') undo();
+        else if (k === 'p' || (k === ' ' && !e.target.matches('button, a, summary'))) { e.preventDefault(); setPaused(!paused); }
+        else if (k === 'escape') { if (paused) setPaused(false); else if (selected !== null) { selected = null; render(); } }
     });
 
     // The clock only runs while the game is actually on screen.
     document.addEventListener('visibilitychange', () => {
-        if (document.hidden) { pauseClock(); save(); } else if (G.moves.length && !G.done) startClock();
+        if (document.hidden && !G.done && G.runningSince) setPaused(true);
     });
     window.addEventListener('pagehide', () => { pauseClock(); save(); });
 
@@ -612,7 +776,7 @@
         resizeTimer = setTimeout(render, 80);
     });
 
-    tickTimer = setInterval(() => {
+    setInterval(() => {
         if (!G.runningSince) return;
         renderTime();
         if (!el.combo.hidden && Date.now() - G.lastMatchAt > RULES.combo_window * 1000) el.combo.hidden = true;
@@ -620,14 +784,9 @@
 
     /* ---------- boot ---------- */
 
-    if (restore()) {
-        el.layout.value = G.layout;
-        render();
-        renderBest();
-    } else {
-        const preferred = store.get(LAYOUT);
-        newGame(CFG.layouts[preferred] ? preferred : 'turtle');
-    }
+    const params = new URLSearchParams(location.search);
+    if (params.has('daily')) startDaily();
+    else startNormal(CFG.layouts[params.get('layout')] ? params.get('layout') : null);
 
     const pending = store.get(PENDING);
     if (pending && CFG.user) submit(pending).then((res) => toast(res.message));

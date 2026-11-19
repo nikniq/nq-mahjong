@@ -9,6 +9,8 @@
         <h1>Create an account</h1>
         <p class="muted">Playing is free without one. An account just records your scores.</p>
 
+        @include('auth._social', ['verb' => 'Sign up'])
+
         <label for="name">Display name</label>
         <input id="name" name="name" type="text" value="{{ old('name') }}" required autofocus maxlength="30" autocomplete="nickname">
         @error('name') <p class="error">{{ $message }}</p> @enderror

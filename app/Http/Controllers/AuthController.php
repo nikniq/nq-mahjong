@@ -58,7 +58,9 @@ class AuthController extends Controller
         Auth::logout();
         $request->session()->invalidate();
         $request->session()->regenerateToken();
+        // Don't sign straight back in through nikniq.com on the next page view.
+        $request->session()->put('nikniq_optout', true);
 
-        return redirect()->route('game');
+        return redirect()->route('home');
     }
 }

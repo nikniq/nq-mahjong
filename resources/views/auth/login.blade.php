@@ -9,6 +9,8 @@
         <h1>Log in</h1>
         <p class="muted">Sign in so your cleared boards count on the leaderboard.</p>
 
+        @include('auth._social', ['verb' => 'Log in'])
+
         <label for="email">Email</label>
         <input id="email" name="email" type="email" value="{{ old('email') }}" required autofocus autocomplete="username">
         @error('email') <p class="error">{{ $message }}</p> @enderror

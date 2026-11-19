@@ -35,4 +35,22 @@ return [
         ],
     ],
 
+    // Sign in with Google (Laravel Socialite). Leave the id/secret empty to hide the button.
+    'google' => [
+        'client_id' => env('GOOGLE_CLIENT_ID'),
+        'client_secret' => env('GOOGLE_CLIENT_SECRET'),
+        'redirect' => env('GOOGLE_REDIRECT_URI', '/auth/google/callback'),
+    ],
+
+    // Sign in with a nikniq.com account (the portal's SSO, PKCE). Off until NIKNIQ_CLIENT_ID is set.
+    // `game` is this game's slug on the portal; finished games are reported there.
+    'nikniq' => [
+        'url' => env('NIKNIQ_URL', 'https://nikniq.com'),
+        'client_id' => env('NIKNIQ_CLIENT_ID'),
+        'client_secret' => env('NIKNIQ_CLIENT_SECRET'),
+        'redirect' => env('NIKNIQ_REDIRECT_URI'),
+        'game' => env('NIKNIQ_GAME', 'mahjong'),
+        'auto_sign_on' => (bool) env('NIKNIQ_AUTO_SIGN_ON', true),
+    ],
+
 ];

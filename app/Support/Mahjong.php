@@ -30,6 +30,26 @@ class Mahjong
         return (int) ceil(self::pairs($layout) * 0.4);
     }
 
+    /** The daily deal's date, in UTC (the browser uses the same clock). */
+    public static function today(): string
+    {
+        return now('UTC')->toDateString();
+    }
+
+    /** A player near the date line may still be on yesterday's or tomorrow's deal. */
+    public static function acceptedDailyDates(): array
+    {
+        $now = now('UTC');
+
+        return [$now->copy()->subDay()->toDateString(), $now->toDateString(), $now->copy()->addDay()->toDateString()];
+    }
+
+    /** The daily deal is always the classic layout, so everyone faces the same board. */
+    public static function dailyLayout(string $date): string
+    {
+        return config('mahjong.daily_layout', 'turtle');
+    }
+
     /** Config payload handed to the browser. */
     public static function clientConfig(): array
     {
@@ -38,6 +58,10 @@ class Mahjong
             $layouts[$key] = $layout + ['par' => self::par($key)];
         }
 
-        return ['layouts' => $layouts, 'scoring' => config('mahjong.scoring')];
+        return [
+            'layouts' => $layouts,
+            'scoring' => config('mahjong.scoring'),
+            'daily' => ['layout' => self::dailyLayout(self::today())],
+        ];
     }
 }
