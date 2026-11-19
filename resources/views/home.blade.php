@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('title', 'Free Mahjong Solitaire')
+@section('title', 'Free Mahjong Solitaire Online — No Download')
 @section('body-class', 'page-home')
 
 @php
@@ -15,30 +15,56 @@
     <section class="hero">
         <div class="hero-copy">
             <p class="eyebrow">100% free · Plays in your browser · No sign-up needed</p>
-            <h1>Mahjong solitaire,<br>beautifully simple.</h1>
+            <h1>Relax, match, clear.<br>Mahjong in one click.</h1>
             <p class="lead">
-                Clear the board by matching pairs of free tiles. Three hand-built layouts,
-                a fresh shared deal every day, and every board is guaranteed to be solvable.
+                The calm, classic tile-matching game, done properly: big clear tiles, no pop-ups,
+                and every board guaranteed solvable. Five minutes or fifty, it fits your break.
             </p>
             <div class="hero-cta">
                 <a class="btn btn-gold btn-lg" href="{{ route('game') }}">Play now — it's free</a>
                 <a class="btn btn-lg" href="{{ route('game', ['daily' => 1]) }}">☀ Today's deal</a>
             </div>
-            <ul class="hero-proof">
-                <li><strong>{{ number_format($stats['cleared']) }}</strong> boards cleared</li>
-                <li><strong>{{ number_format($stats['players']) }}</strong> players</li>
-                <li><strong>{{ number_format($stats['today']) }}</strong> cleared today's deal</li>
+            <ul class="trust">
+                <li>No download</li><li>No pop-up ads</li><li>Phone, tablet &amp; desktop</li>
             </ul>
+            @if ($stats['cleared'] >= 50)
+                <ul class="hero-proof">
+                    <li><strong>{{ number_format($stats['cleared']) }}</strong> boards cleared</li>
+                    <li><strong>{{ number_format($stats['players']) }}</strong> players</li>
+                    @if ($stats['today'] > 0)<li><strong>{{ number_format($stats['today']) }}</strong> cleared today's deal</li>@endif
+                </ul>
+            @endif
         </div>
-        <div class="hero-art" aria-hidden="true">
-            @foreach ($fan as $i => [$glyph, $ink])
-                <span class="hero-tile ink-{{ $ink }}" style="--i: {{ $i }}">{{ $glyph }}</span>
-            @endforeach
+        <div class="hero-side">
+            <div class="hero-art" aria-hidden="true">
+                @foreach ($fan as $i => [$glyph, $ink])
+                    <span class="hero-tile ink-{{ $ink }}" style="--i: {{ $i }}">{{ $glyph }}</span>
+                @endforeach
+            </div>
+            <a class="daily-card" href="{{ route('game', ['daily' => 1]) }}">
+                <span class="daily-card-label">☀ Today's deal · same board for everyone</span>
+                <span class="daily-card-main">
+                    @if (count($dailyTop))
+                        Beat <strong>{{ $dailyTop[0]['name'] }}</strong>: {{ number_format($dailyTop[0]['best']) }} pts
+                    @else
+                        Nobody has cleared it yet. <strong>Be first.</strong>
+                    @endif
+                </span>
+                <span class="daily-card-foot">New deal in <span id="next-deal" data-at="{{ now('UTC')->addDay()->startOfDay()->timestamp }}">--:--:--</span> &rarr;</span>
+            </a>
         </div>
     </section>
 
     <section class="section">
-        <h2 class="section-title">Why players keep coming back</h2>
+        <ol class="steps">
+            <li><strong>Find a pair.</strong> Two identical tiles that are free: nothing on top, left or right side open.</li>
+            <li><strong>Click both.</strong> They vanish. Match fast to build a combo up to triple points.</li>
+            <li><strong>Clear the board.</strong> Beat par for a time bonus and post your score.</li>
+        </ol>
+    </section>
+
+    <section class="section">
+        <h2 class="section-title">Everything you want, nothing you don't</h2>
         <div class="features">
             <article class="feature">
                 <span class="feature-icon" aria-hidden="true">✓</span>
@@ -120,15 +146,26 @@
         </div>
     </section>
 
+    @guest
     <section class="section">
-        <h2 class="section-title">How it works</h2>
-        <ol class="steps">
-            <li><strong>Find a pair.</strong> Look for two identical tiles that are free: nothing on top, and open on the left or right.</li>
-            <li><strong>Click both.</strong> They leave the board. Any flower matches any flower, and any season any season.</li>
-            <li><strong>Clear every tile.</strong> Plan ahead so you don't bury the partner of a tile you need.</li>
-        </ol>
-        <p class="center"><a href="{{ route('how-to-play') }}">Read the full rules &rarr;</a></p>
+        <div class="signup-band">
+            <div>
+                <h2>Make your wins count</h2>
+                <ul class="benefits">
+                    <li>Your name on the leaderboards</li>
+                    <li>Personal bests on every board and the daily deal</li>
+                    <li>Your last guest win is saved the moment you join</li>
+                    <li>Free forever. We never post or email on your behalf.</li>
+                </ul>
+            </div>
+            <div class="signup-actions">
+                @include('auth._social', ['verb' => 'Sign up'])
+                <a class="btn btn-gold" href="{{ route('register') }}">Sign up with email</a>
+                <p class="muted">Takes 10 seconds. Or just <a href="{{ route('game') }}">play as a guest</a>.</p>
+            </div>
+        </div>
     </section>
+    @endguest
 
     <section class="section faq">
         <h2 class="section-title">Questions</h2>
@@ -146,6 +183,18 @@
             <p class="muted">Want your scores on the leaderboard? <a href="{{ route('register') }}">Create a free account</a> with email, Google or nikniq.com.</p>
         @endguest
     </section>
+
+    <script>
+        (function () {
+            var el = document.getElementById('next-deal'); if (!el) return;
+            var at = +el.dataset.at * 1000, pad = function (n) { return String(n).padStart(2, '0'); };
+            (function tick() {
+                var s = Math.max(0, Math.floor((at - Date.now()) / 1000));
+                el.textContent = pad(Math.floor(s / 3600)) + ':' + pad(Math.floor(s / 60) % 60) + ':' + pad(s % 60);
+                if (s > 0) setTimeout(tick, 1000);
+            })();
+        })();
+    </script>
 
     <div class="sticky-cta">
         <a class="btn btn-gold" href="{{ route('game') }}">Play free</a>

@@ -72,3 +72,10 @@ prizes.
 `/admin` shows players, sign-ups, games per day and sign-in providers, and lets admins
 search players, grant/revoke admin, delete players, and remove suspicious scores.
 Grant access with `php artisan mahjong:admin you@example.com`, or list emails in `ADMIN_EMAILS`.
+
+## Operations
+
+`./cx.sh` (run locally) is a menu of server operations over ssh: deploy, health, logs,
+migrations, backups, maintenance mode, and granting admin (options 60/61).
+`./deploy.sh` runs on the server: pull, composer if the lock changed, migrate, rebuild caches.
+Override the target with `REMOTE=host REMOTE_APP=path ./cx.sh`.
