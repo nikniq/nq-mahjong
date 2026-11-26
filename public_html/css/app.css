@@ -515,3 +515,5 @@ kbd { display: inline-block; min-width: 1.6em; padding: .05rem .4rem; border: 1p
 .help-tip { padding: .6rem .8rem; border-radius: 10px; background: rgba(226,180,84,.12); font-size: .9rem; }
 .help-keys { color: var(--muted); font-size: .82rem; }
 .tip { transition: opacity .3s; }
+.nav-portal { color: var(--muted) !important; border-left: 1px solid var(--line); padding-left: .9rem !important; }
+@media (max-width: 720px) { .nav-portal { border-left: 0; padding-left: 0 !important; } }

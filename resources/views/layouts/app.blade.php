@@ -36,6 +36,7 @@
                 @foreach ($menu as [$label, $url, $active])
                     <li><a href="{{ $url }}" @class(['active' => $active]) @if ($active) aria-current="page" @endif>{{ $label }}</a></li>
                 @endforeach
+                <li><a class="nav-portal" href="https://nikniq.com" title="More free games at nikniq.com">&larr; nikniq.com</a></li>
             </ul>
             <div class="nav-account">
                 @unless (request()->routeIs('game'))
