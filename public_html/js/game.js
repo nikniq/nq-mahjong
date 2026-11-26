@@ -57,6 +57,15 @@
             rect(t, 8, 5, 4, 1, 1);
             return t;
         },
+        // 82 tiles: a steep four-level pyramid; the base is buried deep.
+        pyramid() {
+            const t = [];
+            rect(t, 0, 0, 8, 6, 0);
+            rect(t, 2, 2, 6, 4, 1);
+            rect(t, 4, 4, 4, 2, 2);
+            rect(t, 6, 5, 2, 1, 3);
+            return t;
+        },
         // 144 tiles: the traditional turtle.
         turtle() {
             const t = [];
@@ -197,7 +206,7 @@
     // Normal games and the daily deal are saved in separate slots, so starting
     // one never throws away the other.
     const SAVE = 'nq.save', SAVE_DAILY = 'nq.save.daily', BEST = 'nq.best', PENDING = 'nq.pending',
-        LAYOUT = 'nq.layout', PREFS = 'nq.prefs', DAILY_DONE = 'nq.daily.done';
+        LAYOUT = 'nq.layout', PREFS = 'nq.prefs', DAILY_DONE = 'nq.daily.done', ACH = 'nq.achievements';
 
     const el = {
         board: $('board'), wrap: $('board-wrap'), notice: $('notice'), toast: $('toast'),
@@ -558,6 +567,7 @@
         const now = Date.now();
         G.streak = G.lastMatchAt && now - G.lastMatchAt <= RULES.combo_window * 1000 ? G.streak + 1 : 0;
         G.lastMatchAt = now;
+        G.maxStreak = Math.max(G.maxStreak || 0, G.streak);
         G.moves.push([a.id, b.id, G.score]);
         G.score += Math.round(RULES.pair * multiplier(G.streak));
         a.removed = b.removed = true;
@@ -653,6 +663,10 @@
         $('win-streak').hidden = streak < 2;
         $('win-streak').textContent = '☀ ' + streak + '-day daily streak — come back tomorrow to keep it going!';
 
+        const unlocked = unlockAchievements({ duration, par, streak, isBest });
+        $('win-ach').hidden = !unlocked.length;
+        $('win-ach').innerHTML = unlocked.map((a) => '<li>🏅 <strong>' + a.name + '</strong> — ' + a.desc + '</li>').join('');
+
         $('win-title').textContent = G.daily ? 'Daily deal cleared!' : 'Board cleared!';
         $('win-score').textContent = fmt(G.score);
         $('win-breakdown').innerHTML = [
@@ -688,6 +702,39 @@
     }
 
     /* ---------- server ---------- */
+
+    /* ---------- achievements (kept on this device) ---------- */
+
+    const ACHIEVEMENTS = [
+        ['first', 'First clear', 'Clear any board', () => true],
+        ['clean', 'No help needed', 'Win without hints, shuffles or undos', () => G.hints + G.shuffles + G.undos === 0],
+        ['par', 'Beat the clock', 'Finish under par', (w) => w.duration < w.par],
+        ['blitz', 'Blitz', 'Finish in under half of par', (w) => w.duration * 2 < w.par],
+        ['combo', 'On fire', 'Reach the ×' + RULES.combo_max + ' combo', () => multiplier(G.maxStreak || 0) >= RULES.combo_max],
+        ['turtle', 'Turtle tamer', 'Clear the classic Turtle', () => G.layout === 'turtle'],
+        ['all', 'Grand tour', 'Clear every layout', () => Object.keys(CFG.layouts).every((k) => (store.get(BEST) || {})[k])],
+        ['daily', 'Early riser', "Clear a daily deal", () => !!G.daily],
+        ['streak3', 'Habit forming', 'Clear the daily deal 3 days running', (w) => w.streak >= 3],
+        ['streak7', 'Devoted', 'Clear the daily deal 7 days running', (w) => w.streak >= 7],
+    ].map(([id, name, desc, test]) => ({ id, name, desc, test }));
+
+    function unlockAchievements(w) {
+        const got = store.get(ACH) || {};
+        const fresh = ACHIEVEMENTS.filter((a) => !got[a.id] && a.test(w));
+        fresh.forEach((a) => { got[a.id] = today(); });
+        if (fresh.length) store.set(ACH, got);
+        renderAchievements();
+        return fresh;
+    }
+
+    function renderAchievements() {
+        const got = store.get(ACH) || {};
+        const btn = $('btn-ach');
+        if (btn) btn.textContent = 'Achievements (' + ACHIEVEMENTS.filter((a) => got[a.id]).length + '/' + ACHIEVEMENTS.length + ')';
+        const list = $('ach-list');
+        if (list) list.innerHTML = ACHIEVEMENTS.map((a) => '<li class="' + (got[a.id] ? 'got' : '') + '"><span>' + (got[a.id] ? '🏅' : '🔒')
+            + '</span><div><strong>' + a.name + '</strong><small>' + a.desc + (got[a.id] ? ' · ' + got[a.id] : '') + '</small></div></li>').join('');
+    }
 
     /** Consecutive days (ending today) with a cleared daily deal on this device. */
     function dailyStreak() {
@@ -742,6 +789,42 @@
     $('btn-shuffle').addEventListener('click', shuffleBoard);
     el.pauseBtn.addEventListener('click', () => setPaused(!paused));
     $('btn-resume').addEventListener('click', () => setPaused(false));
+    /* ---------- help ---------- */
+
+    const HELP_SEEN = 'nq.help.seen';
+    let helpPaused = false;
+    const openHelp = () => {
+        helpPaused = !paused && G && !G.done && !!G.runningSince;
+        if (helpPaused) setPaused(true);
+        $('help-dialog').showModal();
+    };
+    $('btn-help').addEventListener('click', openHelp);
+    $('help-close').addEventListener('click', () => $('help-dialog').close());
+    $('help-dialog').addEventListener('close', () => { store.set(HELP_SEEN, 1); if (helpPaused) setPaused(false); helpPaused = false; });
+    if (!store.get(HELP_SEEN)) setTimeout(openHelp, 400);
+
+    const TIPS = [
+        'Match pairs of identical free tiles: nothing on top, and the left or right side open.',
+        'Work on the tallest stacks first. Buried tiles are what end a game.',
+        'Clear the ends of long rows early to open them up from both sides.',
+        'If three of a tile are free, think before you match. The fourth may be trapped under one of them.',
+        'Any flower matches any flower; any season matches any season.',
+        'Turn on “Dim blocked tiles” in ⋯ to see which tiles are free.',
+        'Matches within ' + RULES.combo_window + 's keep your combo going, up to ×' + RULES.combo_max + '.',
+        'Shuffle costs ' + RULES.shuffle + ' points. Undo a pair or two first (−' + RULES.undo + ' each).',
+        'No moves left? The Moves counter shows how many pairs you can take right now.',
+        'Every deal is solvable. If you get stuck, an earlier choice blocked the way.',
+    ];
+    let tipIndex = 0;
+    setInterval(() => {
+        if (document.hidden) return;
+        tipIndex = (tipIndex + 1) % TIPS.length;
+        $('tip').textContent = '💡 ' + TIPS[tipIndex];
+    }, 15000);
+
+    $('btn-ach').addEventListener('click', () => { closeMenu(); renderAchievements(); $('ach-dialog').showModal(); });
+    $('ach-close').addEventListener('click', () => $('ach-dialog').close());
+    renderAchievements();
     $('btn-restart').addEventListener('click', () => { closeMenu(); if (confirmAbandon()) newGame(G.layout, G.seed, G.daily); });
     $('btn-daily').addEventListener('click', () => { closeMenu(); if (!G.daily) { save(); startDaily(); } });
     $('btn-new').addEventListener('click', () => {
@@ -770,9 +853,10 @@
     document.addEventListener('click', (e) => { if (el.menu.open && !el.menu.contains(e.target)) closeMenu(); });
 
     document.addEventListener('keydown', (e) => {
-        if (e.target.matches('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey || el.dialog.open) return;
+        if (e.target.matches('input, select, textarea') || e.metaKey || e.ctrlKey || e.altKey || document.querySelector('dialog[open]')) return;
         const k = e.key.toLowerCase();
-        if (k === 'h') hint();
+        if (k === '?') openHelp();
+        else if (k === 'h') hint();
         else if (k === 'u') undo();
         else if (k === 'p' || (k === ' ' && !e.target.matches('button, a, summary'))) { e.preventDefault(); setPaused(!paused); }
         else if (k === 'escape') { if (paused) setPaused(false); else if (selected !== null) { selected = null; render(); } }

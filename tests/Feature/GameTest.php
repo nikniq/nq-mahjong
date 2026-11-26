@@ -22,8 +22,8 @@ class GameTest extends TestCase
     public function test_guests_can_open_the_game_and_leaderboard(): void
     {
         $this->get('/')->assertOk()->assertSee('Play now')->assertSee('next-deal');
-        $this->get('/play')->assertOk()->assertSee('js/game.js');
-        $this->get('/how-to-play')->assertOk();
+        $this->get('/play')->assertOk()->assertSee('js/game.js')->assertSee('help-dialog');
+        $this->get('/how-to-play')->assertOk()->assertSee('Strategy tips')->assertSee('Pyramid');
         $this->get('/leaderboard?layout=daily')->assertOk();
         $this->get('/leaderboard')->assertOk();
         $this->get('/login')->assertOk();

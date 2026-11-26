@@ -19,6 +19,7 @@ return [
     'layouts' => [
         'garden' => ['name' => 'Garden', 'level' => 'Easy', 'tiles' => 48],
         'bridge' => ['name' => 'Twin Towers', 'level' => 'Medium', 'tiles' => 88],
+        'pyramid' => ['name' => 'Pyramid', 'level' => 'Hard', 'tiles' => 82],
         'turtle' => ['name' => 'Turtle', 'level' => 'Classic', 'tiles' => 144],
     ],
 

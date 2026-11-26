@@ -198,7 +198,7 @@ select option { color: #111; }
     .stat-value { font-size: 1.1rem; }
     .controls { width: 100%; }
     .controls .btn, .select select { padding: .35rem .55rem; font-size: .85rem; }
-    .help { display: none; }
+    .help { font-size: .75rem; padding: .3rem .7rem .5rem; } #best-line { display: none; }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -492,3 +492,26 @@ kbd { display: inline-block; min-width: 1.6em; padding: .05rem .4rem; border: 1p
     .trust { justify-content: center; }
     .hero-side { align-items: stretch; }
 }
+
+/* ---------- achievements ---------- */
+.ach-new { list-style: none; padding: .6rem .9rem; margin: .5rem 0; border-radius: 10px; background: rgba(226,180,84,.14); text-align: left; }
+.ach-new li { margin: .2rem 0; }
+.ach-list { list-style: none; padding: 0; margin: 0 0 1rem; display: grid; gap: .5rem; text-align: left; max-height: 60vh; overflow-y: auto; }
+.ach-list li { display: flex; gap: .75rem; align-items: center; padding: .6rem .8rem; border: 1px solid var(--line); border-radius: 10px; opacity: .55; }
+.ach-list li.got { opacity: 1; border-color: rgba(226,180,84,.5); }
+.ach-list span { font-size: 1.4rem; }
+.ach-list small { display: block; color: var(--muted); }
+
+/* ---------- in-game help ---------- */
+.modal-help { width: min(94vw, 520px); text-align: left; max-height: 92vh; overflow-y: auto; }
+.modal-help h2 { margin-top: 0; }
+.help-steps { counter-reset: step; list-style: none; padding: 0; margin: 1rem 0; display: grid; gap: .8rem; }
+.help-steps li { counter-increment: step; position: relative; padding-left: 2.6rem; color: var(--muted); font-size: .92rem; }
+.help-steps li::before { content: counter(step); position: absolute; left: 0; top: 0; width: 1.9rem; height: 1.9rem; display: grid; place-items: center; border-radius: 50%; background: var(--gold); color: var(--gold-ink); font-weight: 800; }
+.help-steps strong { display: block; color: var(--text); }
+.help-tiles { display: block; margin-top: .35rem; }
+.mini { display: inline-grid; place-items: center; width: 1.6rem; height: 2rem; margin: 0 .1rem; border-radius: 4px; background: var(--ivory); color: #222; box-shadow: 2px 2px 0 var(--ivory-edge); font-weight: 700; }
+.mini.ink-r { color: #c0392b; } .mini.ink-b { color: #1f5fa8; }
+.help-tip { padding: .6rem .8rem; border-radius: 10px; background: rgba(226,180,84,.12); font-size: .9rem; }
+.help-keys { color: var(--muted); font-size: .82rem; }
+.tip { transition: opacity .3s; }
